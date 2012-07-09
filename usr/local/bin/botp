@@ -1,0 +1,192 @@
+#!/bin/bash
+botp_ver=1.1a
+#
+# Copyright (C) 2012 James Julian Tosh MIT License All Rights Reserved
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+# of the Software, and to permit persons to whom the Software is furnished to do
+# so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+#
+# History
+#
+# 2012-02-11 1.1a
+#   Added: Remove stale *.otp key files
+# 2012-02-08 1.1
+#   Moved option -o to -k(ey file)
+#   Added: If no key file specified, look for .otp files of the same size as the message.
+#   Added: option -o(utput) to filename
+# 2012-02-07 Created 1.0 
+
+#
+# ToDo
+#
+# In/Out files can be pastebins
+
+#
+# Functions
+#
+printHelpAndExit () {
+cat << EOF
+
+$(basename $0) version $botp_ver
+
+$(basename $0) will create a one-time-pad the length of the input file and perform
+an XOR operation to create a cipher text.
+
+To reverse the encryption, apply the OTP to the encrypted data.
+
+This can be used to encrypt data to a second party without the use of a pre-shared
+key. The procedure is as follows:
+  1) Sender encrypts message and retains OTP.
+  2) Recipient receives encrypted message and applies their own OTP.
+  3) Sender receipves double-encrypted message and re-applies their OTP (to
+     reverse their encryption operation)
+  4) Recipient receives the file and re-applies their OTP to reveal the plaintext
+     message.
+
+Usage $(basename $0)
+  -h  :  Help / usage
+  -k  :  File used as a one time pad.
+         If not specified, a file matching length of message will be used.
+         If there is no match, one will be generated.
+  -m  :  message file (ex: -m plaintext.txt).
+  -o  :  Output to specified filename.
+
+EOF
+exit
+}
+
+if [ $# -eq 0 ]; then
+  printHelpAndExit
+fi 
+
+# Delete stale OTP key files
+find -mtime -3 -name '*.otp' -exec rm -f "{}" \; &> /dev/null
+
+# Define
+oneTimePad=""
+generateOTP=0
+
+while getopts "hk:m:o:" optionName; do
+  case "$optionName" in
+    h) printHelpAndExit 
+       ;;
+    k) oneTimePad="$OPTARG"
+       ;; 
+    m) messageFile="$OPTARG"
+       echo "Message file is: $messageFile"
+       ;;
+    o) fileXOR="$OPTARG"
+       ;;
+    [?]) echo "Bad option."
+         printHelpAndExit 
+       ;;
+  esac
+done
+
+# Check that message file is non-zero
+if [ ! -s "$messageFile" ]; then
+  echo "Error: File '$messageFile' does not exist or is null."
+  printHelpAndExit
+fi 
+#echo "File: $messageFile"
+fileBase=$(basename ${messageFile%%.*})
+#echo "Base: $fileBase"
+filePath=${messageFile%/*}
+if [ $filePath == $messageFile ]; then
+  filePath="."
+fi
+#echo "Path: $filePath"
+
+# Setup output filename
+if [ -z "$fileXOR" ]; then
+  fileXOR=$filePath/$fileBase.xor
+fi
+echo "Output file: $fileXOR"
+
+# Convert message file to byte stream
+echo "Converting message file to byte stream."
+xxd -plain --cols 1 $messageFile > $filePath/$fileBase.bytes
+
+# Get message size
+messageSize=$(cat $filePath/$fileBase.bytes | wc -l)
+echo "File ($messageFile) size is: $messageSize bytes."
+
+# Determine OTP options
+if [ -z "$oneTimePad" ]; then
+  otpCandidates=$(find . -size ${messageSize}c -name '*.otp')
+  otpCandidateCount=$(find . -size ${messageSize}c -name '*.otp' | wc -l)
+  echo -e "OTP Key candidates:"
+  echo -e "$otpCandidates" | sed 's/^/  /'
+  echo "OTP Key candidate count: $otpCandidateCount"
+  case $otpCandidateCount in
+    0)
+      oneTimePad=$filePath/$fileBase.otp
+      echo "One Time Pad will be generated into: $oneTimePad."
+      generateOTP=1
+      ;;
+    1)
+      echo "Found an OTP key file candidate: $otpCandidates"
+      oneTimePad="$otpCandidates"
+      ;;
+    *)
+      echo -e "Found several OTP key file candidates:\n$otpCandidates"
+      echo "ERROR: Found too many OTP Key choices."
+      printHelpAndExit
+      ;;
+  esac
+else
+  if [ ! -s "$oneTimePad" ]; then
+    generateOTP=1
+    echo "$oneTimePad doesn't exist or is null. It will be generated."
+  fi
+  echo "One time Pad read from: $oneTimePad."
+fi
+echo "OTP: $oneTimePad"
+
+# Generate OTP if necessary
+if [ $generateOTP -eq 1 ]; then
+  # Generate a OTP size of message
+  echo "Generating a OTP."
+  dd if=/dev/urandom bs=1 count=$messageSize 2> /dev/null > $oneTimePad
+fi
+
+# Convert OTP file to byte stream
+echo "Converting OTP file to byte stream."
+xxd -plain --cols 1 $oneTimePad > $oneTimePad.bytes
+
+
+rm -f $messageFile.out &> /dev/null
+rm -f $fileXOR &> /dev/null
+# Encrypt message
+for ((index=1; index <= ${messageSize} ; index++)); do
+  #echo "index: $index"
+  messageByte=$(awk "NR==$index" $filePath/$fileBase.bytes)
+  #echo "m: $messageByte"
+  otpByte=$(awk "NR==$index" $oneTimePad.bytes)
+  #echo "k: $otpByte"
+  encryptedByte=$(printf '%x\n' $((0x$messageByte ^ 0x$otpByte)) )
+  #echo "x: $encryptedByte"
+  #echo "m:$messageByte k:$otpByte x:$encryptedByte"
+  echo -en "\x$encryptedByte" >> $fileXOR
+done
+echo "$fileXOR written."
+
+# Cleanup
+rm -f $filePath/*.bytes &> /dev/null
+

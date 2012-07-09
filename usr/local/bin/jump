@@ -1,0 +1,55 @@
+#!/bin/bash
+# Jump script to log ssh sessions
+# v1.3 2011-02-01
+# http://Julian.Tosh.us/
+
+WORKDIR=~/.scripts
+EMAIL=julian.tosh@clearwire.com
+
+# Create working directory if not exist
+if [ ! -d $WORKDIR ]; then
+  echo "Creating $WORKDIR."
+  mkdir $WORKDIR
+  chmod 700 $WORKDIR
+  
+  echo "This looks like this is the first time you've run $0."
+  echo "If you're going to use the PGP signing option,"
+  echo "please make sure you edit the EMAIL variable in this script"
+  echo "to match your signing key."
+  echo
+  echo "Now that $0 has been installed, you won't see this message"
+  echo "again. Please run your last command again. Exiting..."
+  exit
+fi
+
+# Check usage
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 hostname \"ssh options\" \"command\""
+  exit
+else
+  # Setup log file filename
+  # Strips username from user@host if provided
+  # Filename is YYYY-MM-DD_HH:MM:SS_USER@HOST
+  DATE=$(date)
+  if [[ $1 == *@* ]]; then
+    SCRIPTFILE="$WORKDIR/$(date -d "$DATE" '+%Y-%m-%d_%H:%M:%S')_$1.log"
+  else
+    SCRIPTFILE="$WORKDIR/$(date -d "$DATE" '+%Y-%m-%d_%H:%M:%S')_$(whoami)@$1.log"
+  fi
+fi
+
+# Insert demark in logfile
+if [ -f $SCRIPTFILE ]; then
+  echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n==JUMP $(date -d "$DATE" '+%Y-%m-%d %H:%M:%S')\nCommand: $0 $*" >> $SCRIPTFILE
+fi
+
+# Jump and log
+script -f -q -a -c "ssh $2 $1 $3" $SCRIPTFILE
+
+# If PGP keys are available, sign and encrypt logs to your private key.
+gpg --list-secret-keys $EMAIL >& /dev/null 
+HASKEYS=$?
+if [ $HASKEYS -eq 0 ]; then
+  gpg -se -r $EMAIL $SCRIPTFILE
+fi
+

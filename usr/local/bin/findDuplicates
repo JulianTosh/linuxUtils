@@ -1,0 +1,95 @@
+# Finds duplicate files by hashing and uniqueing the results
+
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 dir1 [...]"
+  exit
+fi
+
+# Remove temporary working files
+rm -f /tmp/dup.* duplicateFiles.txt 2> /dev/null
+
+#
+# Get a list of files to the compared
+#
+for directory in $*
+do
+  echo "Processing: $directory"
+  find $directory -type f >> /tmp/dup.allfiles
+done
+
+filecount=$(wc -l /tmp/dup.allfiles | awk '{print $1}')
+
+#
+# Compute hashes on files
+#
+echo "Computing hashes..."
+counter=0
+(
+  cat /tmp/dup.allfiles | while read file; do
+    counter=$((counter+1))
+    if [ $(($counter % 100)) -eq 0 ]; then
+      echo "$(echo "100*$counter/$filecount" | bc)"
+    fi
+    md5sum "$file" >> /tmp/dup.md5
+  done
+) | zenity --progress \
+       --title="Computing hashes" \
+       --text="Progress..." \
+       --percentage=0 \
+       --auto-close
+
+
+#
+# Sort the hash entries
+#
+sort /tmp/dup.md5 > /tmp/dup.md5.sorted
+
+#
+# Sort by number of matches, eliminate singles, and strip out hashes of duplicate files
+#
+uniq -c -w 32 /tmp/dup.md5.sorted | sort -n | awk '$1 > 1' | cut -c9-41 | uniq > /tmp/dup.duphashes
+
+#
+# Create list of duplicat filenames
+#
+echo "Filtering duplicates..."
+counter=0
+(
+  cat /tmp/dup.duphashes | while read hash; do
+    counter=$((counter+1))
+    if [ $(($counter % 100)) -eq 0 ]; then
+      echo "$(echo "100*$counter/$filecount" | bc)"
+    fi
+
+    # Grab all filenames with hash x and split all out except first occurance.
+    grep $hash /tmp/dup.md5 | awk 'NR!=1p' | cut -f3 -d" " >> duplicateFiles.txt
+  done
+) | zenity --progress \
+      --title="Filtering Duplicates" \
+      --text="Progress..." \
+      --percentage=0 \
+      --auto-close
+
+
+read -p "About to delete a bunch of shit. CTRL-C to stop. CTRL-Z to pause and check duplicateFiles.txt. 'fg' to resume."
+#
+# Delete duplicate filenames
+# 
+filecount=$(wc -l duplicateFiles.txt | awk '{print $1}')
+echo "Deleting $filecount duplicates..."
+counter=0
+(
+  cat duplicateFiles.txt | while read file; do
+    counter=$((counter+1))
+    if [ $(($counter % 100)) -eq 0 ]; then
+      echo "$(echo "100*$counter/$filecount" | bc)"
+    fi
+  echo "# erasing \"$file\"..." | tee -a /tmp/dup.delete
+  rm -f "$file" 2> /dev/null
+  done
+) | zenity --progress \
+      --title="Filtering Duplicates" \
+      --text="Progress..." \
+      --percentage=0 \
+      --auto-close
+

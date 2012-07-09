@@ -1,0 +1,2 @@
+#!/bin/bash
+ssh-keygen -y -f  /etc/ssh/ssh_host_rsa_key | sed "s/^/$(hostname -s),$(hostname),$(ifconfig | awk '/Ethernet/,/^$/' | grep '\binet\b' | sed 's/^.*inet addr:\([0-9.]*\) .*$/\1/;' | tr "\n" "," | sed "s/,$//;" | awk 'END { print }') /;"

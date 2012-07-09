@@ -1,0 +1,48 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+  user=$USER
+else
+  user="$1"
+fi
+#echo "User: $user"
+log=/tmp/$user.history
+lastCheck=/tmp/$user.lastHistCheck
+
+if [ -d "/home/$user" ]; then
+  echo "User directory exists."
+else
+  echo "User directory does not exist."
+  exit
+fi 
+
+ls -lah $lastCheck
+now=$(date '+%s')
+echo "Now is:     $now"
+if [ -f $lastCheck ]; then
+  echo "Checked before."
+  sinceLastCheck=$(cat $lastCheck)
+else
+  sinceLastCheck="$(( $now - 85432 ))"
+  echo "Never checked before."
+  echo "Set to:     $sinceLastCheck"
+fi
+#echo "Last check: $sinceLastCheck" | tee -a $log
+echo "baseline:   1339517217654980"
+date '+%s' > $lastCheck
+
+profile=$(cat /home/$user/.mozilla/firefox/profiles.ini | grep "^Path" | cut -f2 -d=)
+echo "Using FF Profile: $profile"
+
+dbPath="/home/$user/.mozilla/firefox/$profile/"
+if [ -d "$dbPath" ]; then
+  echo "db path exists."
+else
+  echo "db path does not exist."
+  exit
+fi
+
+select="select a.visit_date, b.url from moz_historyvisits a, moz_places b where a.place_id=b.id and a.visit_date > ${sinceLastCheck}000000;"
+#echo "DEBUG: $select"
+
+( echo "$select" | sqlite3 $dbPath\places.sqlite) | egrep -v "^PRAGMA|^BEGIN|^COMMIT" | tee -a $log

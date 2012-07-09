@@ -1,0 +1,71 @@
+#~/bin/bash
+# v 1.0 2011-02-01
+# http://Julian.Tosh.us/
+#
+# cl script requires jump script (See wiki)
+# cl script will find the last modified script in ~/.scripts for parsing.
+# limited parsing is available by specifying strings as arguments.
+# These strings are concatenated and deliniated with '|' and used with egrep.
+# Alternatively, you can simple use cl | egrep/grep/awk/sed/etc.
+# The purpose for this is to easily parse important data from a ssh/telnet session.
+
+# No of lines to tail from the latest .scripts log
+DEFAULTCLINES=5000
+
+# Display usage 
+USAGE () {
+  echo "Usage: $0 [str1 ... strx ] | sed/awk/grep/etc"
+  echo "    Will 'tail -n $DEFAULTCLINES' the last modified ~/.script file."
+  echo "    If no pipe exists, arguments can be simple text to grep."
+  echo "    To change the number of lines, export CLINES in your environment."
+  echo "    strx is a simple string to be grep'd and colored in the output."
+  echo "    supplying strings shortens the command to do simple greps."
+}
+
+# Concatenate arguments and deliniate with pipes.
+# i.e. setup multiple strings for egrep
+REGEX=$(echo $@ | tr " " "|")
+
+# No of lines to tail can be modified with this env variable
+if [ -z $CLINES ]; then
+  CLINES=100
+fi
+
+# Nifty feature to check for connected pipes or terminals.
+if [ -t 0 ]; then
+  echo "stdin is a terminal" > /dev/null
+else
+  echo "stdin is a pipe" > /dev/null
+fi
+
+# Only display usage if no pipes are connected and no arguments supplied.
+if [ -t 1 ]; then
+  echo "stdout is a terminal" > /dev/null
+  if [ $# -eq 0 ]; then
+    USAGE
+  fi
+else
+  echo "stdout is a pipe" > /dev/null
+fi
+
+# Caution, magic is happening here
+# Finding the latest session
+FN=$(/bin/ls -tr -1 ~/.scripts/*.log | tail -n 1)
+
+# display a header to segment parsed data for easy reading
+echo "Using $FN"
+echo -en '\e[00;31m'
+printf "%$(tput cols)s\n"|tr ' ' '='
+printf "%$(tput cols)s\n"|tr ' ' '='
+tput sgr0
+
+# Dump the session log
+# If arguments were supplied, grep them - or it all goes to stdout.
+if [ $# -gt 0 ]; then
+  {
+    tail -n $CLINES $FN
+  } | egrep --color "$REGEX"
+else
+  tail -n $CLINES $FN
+fi
+
