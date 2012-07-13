@@ -67,34 +67,32 @@ LOG "Starting rsyncs"
 
 SYNCERROR=0
 
-SYNCHOST=mirror.chpc.utah.edu/pub/centos 
-#SYNCHOST=mirrors.usc.edu/centos
-#SYNC "rsync://$SYNCHOST/5/os/i386/		/var/www/repos/centos/5/os/i386/"
-#SYNC "rsync://$SYNCHOST/5/updates/i386/	/var/www/repos/centos/5/updates/i386/"
-#SYNC "rsync://$SYNCHOST/5/os/x86_64/		/var/www/repos/centos/5/os/x86_64/"
-#SYNC "rsync://$SYNCHOST/5/updates/x86_64/	/var/www/repos/centos/5/updates/x86_64/"
 
-SYNCHOST=mirrors.kernel.org/fedora
-SYNCHOST=mirror.chpc.utah.edu/pub/centos 
-SYNCHOST=mirrors.usc.edu/centos
-SYNC "rsync://$SYNCHOST/6/os/i386/		/var/www/repos/centos/6/os/i386/"
-SYNC "rsync://$SYNCHOST/6/updates/i386/		/var/www/repos/centos/6/updates/i386/"
-SYNC "rsync://$SYNCHOST/6/os/x86_64/		/var/www/repos/centos/6/os/x86_64/"
-SYNC "rsync://$SYNCHOST/6/updates/x86_64/	/var/www/repos/centos/6/updates/x86_64/"
 
-SYNCHOST=mirror.anl.gov/fedora/linux
-#SYNCHOST=mirror.uoregon.edu/fedora
-#SYNCHOST=mirrors.xmission.com/fedora
 
-SYNC "rsync://$SYNCHOST/releases/16/Everything/i386/os/   /var/www/repos/fedora/16/os/i386/"
-SYNC "rsync://$SYNCHOST/updates/16/i386/                  /var/www/repos/fedora/16/updates/i386/"
-SYNC "rsync://$SYNCHOST/releases/16/Everything/x86_64/os/ /var/www/repos/fedora/16/os/x86_64/"
-SYNC "rsync://$SYNCHOST/updates/16/x86_64/                /var/www/repos/fedora/16/updates/x86_64/"
 
-SYNC "rsync://$SYNCHOST/releases/17/Everything/i386/os/   /var/www/repos/fedora/17/os/i386/"
-SYNC "rsync://$SYNCHOST/updates/17/i386/                  /var/www/repos/fedora/17/updates/i386/"
-SYNC "rsync://$SYNCHOST/releases/17/Everything/x86_64/os/ /var/www/repos/fedora/17/os/x86_64/"
-SYNC "rsync://$SYNCHOST/updates/17/x86_64/                /var/www/repos/fedora/17/updates/x86_64/"
+
+
+
+
+
+
+#SYNC "rsync://$SYNCHOST/updates/17/x86_64/                /var/www/repos/fedora/17/updates/x86_64/"
+
+cat etc/updateRepos.conf | awk '/^Host: /,/^$/ {print $0}' |
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if [ $SYNCERROR -eq 0 ]; then
   LOG "Process completed. All repos are in sync."
