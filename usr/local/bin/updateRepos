@@ -1,0 +1,113 @@
+#!/bin/bash
+
+TARGETDIR=/var/www/repos
+LOGFILE=$TARGETDIR/repos-last-updated
+PIDFILE=/var/run/rsyncrepos.pid
+
+mkdir -p $TARGETDIR/centos/{5,6}/{os,updates}
+mkdir -p $TARGETDIR/fedora/{16,17}/{os,updates}
+
+function LOG {
+  echo $(date '+%Y-%m-%d %H%M') : $1 | tee -a $LOGFILE.log
+}
+
+function SYNC {
+  OPTS="--bwlimit=2000 --exclude=debug/ -vaH --numeric-ids --delete --delete-after --delay-updates"
+  OPTS="--exclude=debug/ -vaH --numeric-ids --delete --delete-after --delay-updates"
+  LOG "Running \'rsync $OPTS $@.\'"
+  rsync $OPTS $@ >> $LOGFILE.rsync 2>&1
+  local ERRORCODE=$?
+  if [ $ERRORCODE -ne 0 ]; then
+    SYNCERROR=1
+    LOG "Rsync exited with error code $ERRORCODE."
+  fi
+} 
+
+LOG "==============================================="
+echo "===============================================" >> $LOGFILE.rsync
+echo "$(date '+%Y-%m-%d %H:%M:%S')" >> $LOGFILE.rsync
+echo "===============================================" >> $LOGFILE.rsync
+
+LOG "Startup with $0 $@"
+
+
+if [ -f $PIDFILE ]; then
+   LOG "PID file exists."
+   RUNPID=$(cat $PIDFILE)
+   LOG "Process ID is $RUNPID."
+   if ps -p $RUNPID > /dev/null; then
+      PROCAGE=$(expr $(date +%s) - $(stat -c %Z $PIDFILE))
+      LOG "PID is - $PROCAGE - seconds old..."
+      if [ $PROCAGE -gt 40000 ]; then
+        LOG "Killing stalled process."
+        kill -9 $RUNPID
+        LOG "Gotta take a leak. Be back in 5 seconds."
+        sleep 5
+        ps -p $RUNPID > /dev/null
+        if [ $? -gt 0 ]; then
+          LOG "Process sucessfully killed."
+        else
+          LOG "Process did not die. You have a problem. See you in the logs!"
+        fi
+      else
+        LOG "We'll let this one marinate awhile longer."
+      fi
+      exit 1
+   else
+      LOG "Mirror pid found but process dead, cleaning up"
+      rm -f $PIDFILE
+   fi
+else
+   LOG "No process Detected. Ok to continue."
+fi
+
+LOG "Recording PID as $$."
+echo $$ > $PIDFILE
+LOG "Starting rsyncs"
+
+SYNCERROR=0
+
+SYNCHOST=mirror.chpc.utah.edu/pub/centos 
+#SYNCHOST=mirrors.usc.edu/centos
+#SYNC "rsync://$SYNCHOST/5/os/i386/		/var/www/repos/centos/5/os/i386/"
+#SYNC "rsync://$SYNCHOST/5/updates/i386/	/var/www/repos/centos/5/updates/i386/"
+#SYNC "rsync://$SYNCHOST/5/os/x86_64/		/var/www/repos/centos/5/os/x86_64/"
+#SYNC "rsync://$SYNCHOST/5/updates/x86_64/	/var/www/repos/centos/5/updates/x86_64/"
+
+SYNCHOST=mirrors.kernel.org/fedora
+SYNCHOST=mirror.chpc.utah.edu/pub/centos 
+SYNCHOST=mirrors.usc.edu/centos
+SYNC "rsync://$SYNCHOST/6/os/i386/		/var/www/repos/centos/6/os/i386/"
+SYNC "rsync://$SYNCHOST/6/updates/i386/		/var/www/repos/centos/6/updates/i386/"
+SYNC "rsync://$SYNCHOST/6/os/x86_64/		/var/www/repos/centos/6/os/x86_64/"
+SYNC "rsync://$SYNCHOST/6/updates/x86_64/	/var/www/repos/centos/6/updates/x86_64/"
+
+SYNCHOST=mirror.anl.gov/fedora/linux
+#SYNCHOST=mirror.uoregon.edu/fedora
+#SYNCHOST=mirrors.xmission.com/fedora
+
+SYNC "rsync://$SYNCHOST/releases/16/Everything/i386/os/   /var/www/repos/fedora/16/os/i386/"
+SYNC "rsync://$SYNCHOST/updates/16/i386/                  /var/www/repos/fedora/16/updates/i386/"
+SYNC "rsync://$SYNCHOST/releases/16/Everything/x86_64/os/ /var/www/repos/fedora/16/os/x86_64/"
+SYNC "rsync://$SYNCHOST/updates/16/x86_64/                /var/www/repos/fedora/16/updates/x86_64/"
+
+SYNC "rsync://$SYNCHOST/releases/17/Everything/i386/os/   /var/www/repos/fedora/17/os/i386/"
+SYNC "rsync://$SYNCHOST/updates/17/i386/                  /var/www/repos/fedora/17/updates/i386/"
+SYNC "rsync://$SYNCHOST/releases/17/Everything/x86_64/os/ /var/www/repos/fedora/17/os/x86_64/"
+SYNC "rsync://$SYNCHOST/updates/17/x86_64/                /var/www/repos/fedora/17/updates/x86_64/"
+
+if [ $SYNCERROR -eq 0 ]; then
+  LOG "Process completed. All repos are in sync."
+  logger "$0 exited with no errors."
+  echo "Last successful sync at $(date +'%Y-%m-%d at %H:%M:%S')." > $LOGFILE.success
+else
+  LOG "Process completed. There were errors. Please check the log for more details."
+  logger "$0 exited with errors."
+fi
+
+LOG "Removing $PIDFILE."
+LOG "===="
+rm -f $PIDFILE
+exit $SYNCERROR
+
+

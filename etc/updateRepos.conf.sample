@@ -1,0 +1,29 @@
+Host: mirror.chpc.utah.edu/pub/centos 
+/5/os/i386/		/centos/5/os/i386/
+/5/updates/i386/	/centos/5/updates/i386/
+/5/os/x86_64/		/centos/5/os/x86_64/
+/5/updates/x86_64/	/centos/5/updates/x86_64/
+
+#Host: mirrors.kernel.org/fedora
+#Host: mirror.chpc.utah.edu/pub/centos 
+Host: mirrors.usc.edu/centos
+/6/os/i386/		/centos/6/os/i386/
+/6/updates/i386/	/centos/6/updates/i386/
+/6/os/x86_64/		/centos/6/os/x86_64/
+/6/updates/x86_64/	/centos/6/updates/x86_64/
+
+#Host: mirror.uoregon.edu/fedora
+#Host: mirrors.xmission.com/fedora
+Host: mirror.anl.gov/fedora/linux
+/releases/16/Everything/i386/os/   /fedora/16/os/i386/
+/updates/16/i386/                  /fedora/16/updates/i386/
+/releases/16/Everything/x86_64/os/ /fedora/16/os/x86_64/
+/updates/16/x86_64/                /fedora/16/updates/x86_64/
+
+#Host: mirror.uoregon.edu/fedora
+#Host: mirrors.xmission.com/fedora
+Host: mirror.anl.gov/fedora/linux
+/releases/17/Everything/i386/os/   /fedora/17/os/i386/
+/updates/17/i386/                  /fedora/17/updates/i386/
+/releases/17/Everything/x86_64/os/ /fedora/17/os/x86_64/
+/updates/17/x86_64/                /fedora/17/updates/x86_64/
